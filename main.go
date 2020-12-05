@@ -1,7 +1,6 @@
-package httpclient
+package http
 
 import (
-	"crypto/tls"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -13,16 +12,22 @@ import (
 var once sync.Once
 var client *http.Client
 
-// GetData - get data by an url
-func GetData(url string) ([]byte, error) {
+// Get - wrapper to execute http GET request
+func Get(url string, headers map[string]string) ([]byte, error) {
 	client := Client()
-	response, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body)
+	for k, v := range headers {
+		req.Header.Add(k, v)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +41,9 @@ func Client() *http.Client {
 			Dial: (&net.Dialer{
 				Timeout: time.Second * 10,
 			}).Dial,
-			TLSHandshakeTimeout: time.Second * 5,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
+			MaxIdleConns:        10,
+			IdleConnTimeout:     10 * time.Second,
+			TLSHandshakeTimeout: 5 * time.Second,
 			DisableKeepAlives:   true,
 		}
 		cookieJar, err := cookiejar.New(nil)
@@ -45,7 +51,7 @@ func Client() *http.Client {
 			panic(err)
 		}
 		client = &http.Client{
-			Timeout:   time.Second * 300,
+			Timeout:   300 * time.Second,
 			Transport: transport,
 			Jar:       cookieJar,
 		}
