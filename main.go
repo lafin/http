@@ -16,53 +16,41 @@ var once sync.Once
 var client *http.Client
 
 // Get - wrapper to execute http GET request
-func Get(url string, headers map[string]string) ([]byte, error) {
-	client = Client()
+func Get(url string, headers map[string]string) ([]byte, *http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	for k, v := range headers {
-		req.Header.Add(k, v)
-	}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res.StatusCode >= 400 {
-		return nil, fmt.Errorf("%d", res.StatusCode)
-	}
-	defer res.Body.Close()
-	response, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	return response, nil
+	return doRequest(req, headers)
 }
 
 // Post - wrapper to execute http POST request
-func Post(url string, body io.Reader, headers map[string]string) ([]byte, error) {
-	client = Client()
-	req, err := http.NewRequest("POST", url, body)
+func Post(url string, data io.Reader, headers map[string]string) ([]byte, *http.Response, error) {
+	req, err := http.NewRequest("POST", url, data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	return doRequest(req, headers)
+}
+
+func doRequest(req *http.Request, headers map[string]string) ([]byte, *http.Response, error) {
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
+	client = Client()
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if res.StatusCode >= 400 {
-		return nil, fmt.Errorf("%d", res.StatusCode)
+		return nil, nil, fmt.Errorf("%d", res.StatusCode)
 	}
 	defer res.Body.Close()
-	response, err := ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return response, nil
+	return body, res, nil
 }
 
 // Client - get instance of http client
@@ -87,6 +75,5 @@ func Client() *http.Client {
 			Jar:       cookieJar,
 		}
 	})
-
 	return client
 }
