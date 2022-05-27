@@ -4,8 +4,6 @@ package http
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"sync"
@@ -46,7 +44,7 @@ func doRequest(req *http.Request, headers map[string]string) ([]byte, *http.Resp
 		return nil, nil, fmt.Errorf("%d", res.StatusCode)
 	}
 	defer res.Body.Close()
-	body, err := ioutil.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,9 +55,6 @@ func doRequest(req *http.Request, headers map[string]string) ([]byte, *http.Resp
 func Client() *http.Client {
 	once.Do(func() {
 		transport := &http.Transport{
-			Dial: (&net.Dialer{
-				Timeout: time.Second * 10,
-			}).Dial,
 			MaxIdleConns:        10,
 			IdleConnTimeout:     10 * time.Second,
 			TLSHandshakeTimeout: 5 * time.Second,
