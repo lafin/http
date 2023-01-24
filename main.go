@@ -15,7 +15,7 @@ var client *http.Client
 
 // Get - wrapper to execute http GET request
 func Get(url string, headers map[string]string) ([]byte, *http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", url, http.NoBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -35,7 +35,7 @@ func doRequest(req *http.Request, headers map[string]string) ([]byte, *http.Resp
 	for k, v := range headers {
 		req.Header.Add(k, v)
 	}
-	client = Client()
+	client = Client(Params{})
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, nil, err
@@ -51,21 +51,45 @@ func doRequest(req *http.Request, headers map[string]string) ([]byte, *http.Resp
 	return body, res, nil
 }
 
+// Params - http client settings
+type Params struct {
+	MaxIdleConns        int
+	IdleConnTimeout     time.Duration
+	TLSHandshakeTimeout time.Duration
+	DisableKeepAlives   string
+	Timeout             time.Duration
+}
+
 // Client - get instance of http client
-func Client() *http.Client {
+func Client(p Params) *http.Client {
+	if p.MaxIdleConns == 0 {
+		p.MaxIdleConns = 10
+	}
+	if p.IdleConnTimeout == 0 {
+		p.IdleConnTimeout = 10 * time.Second
+	}
+	if p.TLSHandshakeTimeout == 0 {
+		p.TLSHandshakeTimeout = 5 * time.Second
+	}
+	if p.DisableKeepAlives != "no" {
+		p.DisableKeepAlives = "yes"
+	}
+	if p.Timeout == 0 {
+		p.Timeout = 300 * time.Second
+	}
 	once.Do(func() {
 		transport := &http.Transport{
-			MaxIdleConns:        10,
-			IdleConnTimeout:     10 * time.Second,
-			TLSHandshakeTimeout: 5 * time.Second,
-			DisableKeepAlives:   true,
+			MaxIdleConns:        p.MaxIdleConns,
+			IdleConnTimeout:     p.IdleConnTimeout,
+			TLSHandshakeTimeout: p.TLSHandshakeTimeout,
+			DisableKeepAlives:   p.DisableKeepAlives == "yes",
 		}
 		cookieJar, err := cookiejar.New(nil)
 		if err != nil {
 			panic(err)
 		}
 		client = &http.Client{
-			Timeout:   300 * time.Second,
+			Timeout:   p.Timeout,
 			Transport: transport,
 			Jar:       cookieJar,
 		}
